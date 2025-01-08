@@ -1,0 +1,14 @@
+{
+    "action": "opened",
+    "issue": {
+      "url": "https://api.github.com/repos/username/repository/issues/1",
+      "repository_url": "https://api.github.com/repos/username/repository",
+      "labels": [
+        {
+          "name": "Add Tool"
+        }
+      ],
+      "body": "- name: 'Test JSON Editor'\n  description: 'A simple and intuitive JSON editor for creating and validating JSON data.'\n  toolingTypes: ['editor', 'validator']\n  languages: ['JavaScript', 'TypeScript']\n  environments: ['Web', 'Cross-Platform']\n  maintainers:\n    - name: 'Tech Team'\n      platform: 'github'\n  creators:\n    - name: 'Tech Innovations'\n      platform: 'other'\n  homepage: 'https://www.testjsoneditor.com'\n  license: 'MIT'\n  supportedDialects:\n    draft: ['2020-12', '2019-09']"
+    }
+  }
+  

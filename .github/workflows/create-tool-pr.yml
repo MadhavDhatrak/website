@@ -1,0 +1,126 @@
+name: Add Tool to tool-data.yaml
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  create-tool-pr:
+    if: contains(github.event.issue.labels.*.name, 'Add Tool')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          echo "Start Configure Git: $(date)"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          echo "End Configure Git: $(date)"
+
+      - name: Parse Issue and Append Tool to tool-data.yaml
+        run: |
+          echo "Start Parse Issue: $(date)"
+          set -e
+
+          # Extract issue body
+          ISSUE_BODY="${{ github.event.issue.body }}"
+
+          # Debug issue body
+          echo "Issue Body: $ISSUE_BODY"
+
+          # Parse issue body using different regex patterns
+          TOOL_NAME=$(echo "$ISSUE_BODY" | grep -oP '(?<=name:\s*).*(?=\n)' || echo "Not Found")
+          DESCRIPTION=$(echo "$ISSUE_BODY" | grep -oP '(?<=description:\s*).*(?=\n)' || echo "Not Found")
+          TOOLING_TYPES=$(echo "$ISSUE_BODY" | grep -oP '(?<=toolingTypes:\s*).*(?=\n)' || echo "Not Found")
+          LANGUAGES=$(echo "$ISSUE_BODY" | grep -oP '(?<=languages:\s*).*(?=\n)' || echo "Not Found")
+          MAINTAINER_NAME=$(echo "$ISSUE_BODY" | grep -oP '(?<=maintainers:\s*-\s*name:\s*).*(?=\n)' || echo "Not Found")
+          MAINTAINER_USERNAME=$(echo "$ISSUE_BODY" | grep -oP '(?<=maintainers:\s*-\s*platform:\s*).*(?=\n)' || echo "Not Found")
+          LICENSE=$(echo "$ISSUE_BODY" | grep -oP '(?<=license:\s*).*(?=\n)' || echo "Not Found")
+
+          # Debug parsed values
+          echo "Parsed TOOL_NAME: $TOOL_NAME"
+          echo "Parsed DESCRIPTION: $DESCRIPTION"
+          echo "Parsed TOOLING_TYPES: $TOOLING_TYPES"
+          echo "Parsed LANGUAGES: $LANGUAGES"
+          echo "Parsed MAINTAINER_NAME: $MAINTAINER_NAME"
+          echo "Parsed MAINTAINER_USERNAME: $MAINTAINER_USERNAME"
+          echo "Parsed LICENSE: $LICENSE"
+
+          echo "End Parse Issue: $(date)"
+
+      - name: Add Tool Data
+        run: |
+          echo "Start Add Tool Data: $(date)"
+          set -x
+          
+          # Use a temporary file to safely append to tool-data.yaml
+          TMP_FILE=$(mktemp)
+
+          # Append the new tool entry to the temporary file
+          echo "    - name: '$TOOL_NAME'" >> $TMP_FILE
+          echo "      description: '$DESCRIPTION'" >> $TMP_FILE
+          echo "      toolingTypes: '$TOOLING_TYPES'" >> $TMP_FILE
+          echo "      languages: '$LANGUAGES'" >> $TMP_FILE
+          echo "      license: '$LICENSE'" >> $TMP_FILE
+          echo "      maintainer:" >> $TMP_FILE
+          echo "    - name: '$MAINTAINER_NAME'" >> $TMP_FILE
+          echo "      username: '$MAINTAINER_USERNAME'" >> $TMP_FILE
+          echo "      platform: 'github'" >> $TMP_FILE
+
+          # Append the new data from the temporary file into tool-data.yaml
+          cat $TMP_FILE >> tool-data.yaml
+
+          # Clean up temporary file
+          rm $TMP_FILE
+
+          echo "End Add Tool Data: $(date)"
+
+      - name: Check tool-data.yaml content
+        run: |
+          echo "Start Check tool-data.yaml Content: $(date)"
+          cat tool-data.yaml
+          echo "End Check tool-data.yaml Content: $(date)"
+
+      - name: Commit and Push Changes
+        run: |
+          echo "Start Commit and Push: $(date)"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git add tool-data.yaml
+          git commit -m "Add new tool: $TOOL_NAME"
+          git push origin main
+          echo "Push completed."
+          echo "End Commit and Push: $(date)"
+
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            console.log("Start Create Pull Request: " + new Date().toISOString());
+            const pullRequest = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Add new tool: ${process.env.TOOL_NAME}`,
+              head: context.ref.replace('refs/heads/', ''),
+              base: 'main',
+              body: `This PR adds a new tool: ${process.env.TOOL_NAME}`
+            });
+            console.log("End Create Pull Request: " + new Date().toISOString());
+
+            console.log("Start Create Comment: " + new Date().toISOString());
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequest.data.number,
+              body: `A pull request has been created: #${pullRequest.data.number}`
+            });
+            console.log("End Create Comment: " + new Date().toISOString());
