@@ -16,3 +16,16 @@
     - name: ''
       username: ''
       platform: 'github'
+- name: ''
+  description: ''
+  toolingTypes: []
+  languages: []
+  environments: []
+  maintainers:
+    - name: ''
+      platform: ''
+  creators:
+    - name: ''
+      platform: ''
+  homepage: ''
+  license: ''
