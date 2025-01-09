@@ -3106,3 +3106,18 @@
   supportedDialects:
     draft: ['2020-12', '7']
   toolingListingNotes: 'JSON Schema Validation for Elixir according to the latest specifications. Supports compile-time schema builds, custom dialects and custom formats.'
+
+- name: ""
+  description: ""
+  toolingTypes: []
+  languages: []
+  environments: []
+  maintainers:
+    - name: ""
+      platform: ""
+  creators:
+    - name: ""
+      platform: ""
+  homepage: ""
+  license: ""
+
