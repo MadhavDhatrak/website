@@ -3106,3 +3106,20 @@
   supportedDialects:
     draft: ['2020-12', '7']
   toolingListingNotes: 'JSON Schema Validation for Elixir according to the latest specifications. Supports compile-time schema builds, custom dialects and custom formats.'
+
+- name: 'Test Tool'
+  description: 'This is a test tool description'
+  toolingTypes: [validator, editor]
+  languages: [JavaScript, Python]
+  environments: [Web, Node.js]
+  maintainers:
+    - name: 'John Doe'
+      platform: 'github'
+  creators:
+    - name: 'Jane Smith'
+      platform: 'github'
+  homepage: 'https://example.com'
+  source: 'https://github.com/example/test-tool'
+  license: 'MIT'
+  supportedDialects: 'Draft: 2020-12, 7'
+  toolingListingNotes: 'JSON Schema Validation for Elixir according to the latest specifications. Supports compile-time schema builds, custom dialects, and custom formats.'
