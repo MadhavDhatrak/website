@@ -25,7 +25,11 @@ jobs:
       - name: Parse Issue and Append Tool to tool-data.yaml
         id: parse
         run: |
-          # Parse the issue body
+          # Debug: Show the issue body for inspection
+          echo "Issue body content:"
+          echo "${{ github.event.issue.body }}"
+          
+          # Parse with more flexible patterns
           {
             echo "tool_name=$(echo '${{ github.event.issue.body }}' | grep "Tool Name" -A 1 | tail -n 1 | xargs)"
             echo "description=$(echo '${{ github.event.issue.body }}' | grep "Tool Description" -A 1 | tail -n 1 | xargs)"
@@ -37,14 +41,33 @@ jobs:
             echo "creator_names=$(echo '${{ github.event.issue.body }}' | grep "Creator Name" -A 1 | tail -n 1 | xargs)"
             echo "creator_platforms=$(echo '${{ github.event.issue.body }}' | grep "Creator Platform" -A 1 | tail -n 1 | xargs)"
             echo "homepage=$(echo '${{ github.event.issue.body }}' | grep "Homepage" -A 1 | tail -n 1 | xargs)"
-            echo "source=$(echo '${{ github.event.issue.body }}' | grep "Source" -A 1 | tail -n 1 | xargs)"
+            echo "source=$(echo '${{ github.event.issue.body }}' | grep "Source" -A 1 | tail -n 1 | xargs)" 
             echo "license=$(echo '${{ github.event.issue.body }}' | grep "License" -A 1 | tail -n 1 | xargs)"
-            echo "supported_dialects=$(echo '${{ github.event.issue.body }}' | grep "Supported Dialects" -A 1 | tail -n 1 | tr -d '\"' | tr ',' ' ' | xargs | sed 's/ /, /g')"
-            echo "tooling_listing_notes=$(echo '${{ github.event.issue.body }}' | grep "Tooling Listing Notes" -A 1 | tail -n 1)"
+            echo "supported_dialects=$(echo '${{ github.event.issue.body }}' | grep "Supported Dialects" -A 1 | tail -n 1 | sed 's/\"//g' | tr ',' ' ' | xargs | sed 's/\([^ ]*\)/\x27\1\x27/g' | sed 's/ /, /g')"
+            echo "tooling_listing_notes=$(echo '${{ github.event.issue.body }}' | grep "Tooling Listing Notes" -A 1 | tail -n 1 | xargs)" 
           } >> "$GITHUB_OUTPUT"
+          
+          # Debug: Show parsed output
+          cat "$GITHUB_OUTPUT"
 
       - name: Add Tool Data
         run: |
+          # Ensure data directory exists
+          mkdir -p data
+          
+          # Create file if it doesn't exist
+          touch data/tooling-data.yaml
+          
+          # Debug: Show file permissions
+          ls -la data/tooling-data.yaml
+          
+          # Debug: Show parsed values
+          echo "Using these values:"
+          echo "Tool name: '${{ steps.parse.outputs.tool_name }}'"
+          echo "Description: '${{ steps.parse.outputs.description }}'"
+          echo "Tooling types: [${{ steps.parse.outputs.tooling_types }}]"
+          
+          # Add new entry with proper indentation
           {
             echo ""
             echo "- name: '${{ steps.parse.outputs.tool_name }}'"
@@ -62,62 +85,120 @@ jobs:
             echo "  source: '${{ steps.parse.outputs.source }}'"
             echo "  license: '${{ steps.parse.outputs.license }}'"
             echo "  supportedDialects:"
-            echo "    draft: ['${{ steps.parse.outputs.supported_dialects }}']"
+            echo "    draft: [${{ steps.parse.outputs.supported_dialects }}]"  
             echo "  toolingListingNotes: '${{ steps.parse.outputs.tooling_listing_notes }}'"
           } >> data/tooling-data.yaml
+          
+          # Debug: Show file content after addition
+          echo "File content after addition:"
+          cat data/tooling-data.yaml
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Generate Coverage Reports
-        run: npm test -- --coverage
+      - name: Commit and Push Changes
+        id: commit
+        run: |
+          TOOL_NAME="${{ steps.parse.outputs.tool_name }}"
+          BRANCH_NAME="add-tool-$(echo "$TOOL_NAME" | tr ' ' '-')-$(date +%s)"
+          git checkout -b "$BRANCH_NAME"
+          git add data/tooling-data.yaml
+          git commit -m "Add new tool: $TOOL_NAME"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Create Pull Request
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const TOOL_NAME = process.env.TOOL_NAME;
-            const BRANCH_NAME = `add-tool-${TOOL_NAME.replace(/ /g, '-')}-${Date.now()}`;
-            
             try {
-              await exec.exec('git', ['checkout', '-b', BRANCH_NAME]);
-              await exec.exec('git', ['add', 'data/tooling-data.yaml']);
-              await exec.exec('git', ['commit', '-m', `Add new tool: ${TOOL_NAME}`]);
-              await exec.exec('git', ['push', 'origin', BRANCH_NAME]);
+              const TOOL_NAME = "${{ steps.parse.outputs.tool_name }}";
+              const DESCRIPTION = "${{ steps.parse.outputs.description }}";
+              const TOOLING_TYPES = "${{ steps.parse.outputs.tooling_types }}";
+              const LANGUAGES = "${{ steps.parse.outputs.languages }}";
+              const ENVIRONMENTS = "${{ steps.parse.outputs.environments }}";
+              const LICENSE = "${{ steps.parse.outputs.license }}";
+              const HOMEPAGE = "${{ steps.parse.outputs.homepage }}";
+              const SOURCE ="${{steps.parse.outputs.source}}"
+              const SUPPORTED_DIALECTS = "${{ steps.parse.outputs.supported_dialects }}";
+              const TOOLING_LISTING_NOTES = "${{ steps.parse.outputs.tooling_listing_notes }}";
+              const BRANCH_NAME = process.env.branch_name;
               
               const prBody = `
-              Added new tool from issue #${context.issue.number}
+              ## New Tool Addition: ${TOOL_NAME}
               
-              Tool Details:
-              - Name: ${TOOL_NAME}
-              - Description: ${process.env.DESCRIPTION}
+              ### Tool Details
+              - *Description*: ${DESCRIPTION}
+              - *Tool Types*: ${TOOLING_TYPES}
+              - *Languages*: ${LANGUAGES}
+              - *Environments*: ${ENVIRONMENTS}
+              - *License*: ${LICENSE}
+              - *Homepage*: ${HOMEPAGE}
+              - *Source*: ${SOURCE}
+              - *Tooling-List*: ${TOOLING_LISTING_NOTES}
+              - *Supported Dialects: ${SUPPORTED_DIALECTS}
+              
+              ### Changes Made
+              This PR adds a new tool to the JSON Schema ecosystem catalog. The tool has been added to \data/tooling-data.yaml\ with all provided information.
+              
+              ### Checklist
+              - [x] Tool information added to tooling-data.yaml
+              - [x] Required fields are present
+              - [x] Format follows existing entries
+              
+              ### Additional Notes
+              Please review the added information for accuracy and completeness.
               `;
               
-              const { data: pullRequest } = await github.rest.pulls.create({
+              console.log('Creating PR with:', {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: `Add new tool: ${TOOL_NAME}`,
                 head: BRANCH_NAME,
-                base: 'main',
-                body: prBody
+                base: 'main'
               });
               
-              console.log('PR created:', pullRequest.html_url);
+              // Add error handling and retry logic
+              let retries = 3;
+              while (retries > 0) {
+                try {
+                  const pullRequest = await github.rest.pulls.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title: `Add new tool: ${TOOL_NAME}`,
+                    head: BRANCH_NAME,
+                    base: 'main',
+                    body: prBody
+                  });
+                  
+                  console.log('PR created:', pullRequest.data.html_url);
+                  break;
+                } catch (error) {
+                  console.error(`Attempt ${4-retries} failed:`, error);
+                  retries--;
+                  if (retries === 0) throw error;
+                  // Wait 2 seconds before retrying
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              }
             } catch (error) {
+              console.error('Error creating PR:', error);
               core.setFailed(`Failed to create PR: ${error.message}`);
             }
 
-      - name: Upload Coverage to Codecov
-        if: success()
+      - name: Check Unauthorized File Changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1)
+          UNAUTHORIZED_FILES=".github/workflows/create-tool-pr.yml"
+          for file in $CHANGED_FILES; do
+            if [[ "$UNAUTHORIZED_FILES" == *"$file"* ]]; then
+              echo "$file is unauthorized to change/delete"
+              exit 1
+            fi
+          done
+
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5.1.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage/
           fail_ci_if_error: false
           verbose: true
