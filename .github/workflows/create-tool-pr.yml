@@ -28,7 +28,7 @@ jobs:
           echo "Issue body content:"
           echo "${{ github.event.issue.body }}"
 
-          # Parse values from the issue body
+          # Parse with more flexible patterns
           {
             echo "tool_name=$(echo '${{ github.event.issue.body }}' | grep 'Tool Name' -A 1 | tail -n 1 | xargs)"
             echo "description=$(echo '${{ github.event.issue.body }}' | grep 'Tool Description' -A 1 | tail -n 1 | xargs)"
@@ -62,11 +62,134 @@ jobs:
           
           # Debug: Show parsed values
           echo "Using these values:"
-          cat "$GITHUB_OUTPUT"
+          echo "Tool name: '${{ steps.parse.outputs.tool_name }}'"
+          echo "Description: '${{ steps.parse.outputs.description }}'"
+          echo "Tooling types: [${{ steps.parse.outputs.tooling_types }}]"
+
+          # Add new entry with proper indentation
+          {
+            echo ""
+            echo "- name: '${{ steps.parse.outputs.tool_name }}'"
+            echo "  description: '${{ steps.parse.outputs.description }}'"
+            echo "  toolingTypes: [${{ steps.parse.outputs.tooling_types }}]"
+            echo "  languages: [${{ steps.parse.outputs.languages }}]"
+            echo "  environments: [${{ steps.parse.outputs.environments }}]"
+            echo "  maintainers:"
+            echo "    - name: '${{ steps.parse.outputs.maintainer_names }}'"
+            echo "      platform: '${{ steps.parse.outputs.maintainer_platforms }}'"
+            echo "  creators:"
+            echo "    - name: '${{ steps.parse.outputs.creator_names }}'"
+            echo "      platform: '${{ steps.parse.outputs.creator_platforms }}'"
+            echo "  homepage: '${{ steps.parse.outputs.homepage }}'"
+            echo "  source: '${{ steps.parse.outputs.source }}'"
+            echo "  license: '${{ steps.parse.outputs.license }}'"
+            echo "  supportedDialects:"
+            echo "    draft: [${{ steps.parse.outputs.supported_dialects }}]"
+            echo "  toolingListingNotes: '${{ steps.parse.outputs.tooling_listing_notes }}'"
+          } >> data/tooling-data.yaml
+          
+          # Debug: Show file content after addition
+          echo "File content after addition:"
+          cat data/tooling-data.yaml
+
+      - name: Commit and Push Changes
+        id: commit
+        run: |
+          TOOL_NAME="${{ steps.parse.outputs.tool_name }}"
+          BRANCH_NAME="add-tool-$(echo "$TOOL_NAME" | tr ' ' '-')-$(date +%s)"
+          git checkout -b "$BRANCH_NAME"
+          git add data/tooling-data.yaml
+          git commit -m "Add new tool: $TOOL_NAME"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              const TOOL_NAME = "${{ steps.parse.outputs.tool_name }}";
+              const DESCRIPTION = "${{ steps.parse.outputs.description }}";
+              const TOOLING_TYPES = "${{ steps.parse.outputs.tooling_types }}";
+              const LANGUAGES = "${{ steps.parse.outputs.languages }}";
+              const ENVIRONMENTS = "${{ steps.parse.outputs.environments }}";
+              const LICENSE = "${{ steps.parse.outputs.license }}";
+              const HOMEPAGE = "${{ steps.parse.outputs.homepage }}";
+              const SOURCE ="${{steps.parse.outputs.source}}"
+              const SUPPORTED_DIALECTS = "${{ steps.parse.outputs.supported_dialects }}";
+              const TOOLING_LISTING_NOTES = "${{ steps.parse.outputs.tooling_listing_notes }}";
+              const BRANCH_NAME = process.env.branch_name;
+              
+              const prBody = `
+              ## New Tool Addition: ${TOOL_NAME}
+              
+              ### Tool Details
+              - *Description*: ${DESCRIPTION}
+              - *Tool Types*: ${TOOLING_TYPES}
+              - *Languages*: ${LANGUAGES}
+              - *Environments*: ${ENVIRONMENTS}
+              - *License*: ${LICENSE}
+              - *Homepage*: ${HOMEPAGE}
+              - *Source*: ${SOURCE}
+              - *Supported Dialects*: ${SUPPORTED_DIALECTS}
+              - *Tooling Listing Notes*: ${TOOLING_LISTING_NOTES}
+              `;
+              const pr = await github.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Add new tool: ${TOOL_NAME}`,
+                head: BRANCH_NAME,
+                base: 'main',
+                body: prBody
+              });
+            } catch (error) {
+              core.setFailed(error.message);
+            }
 
       - name: Check Unauthorized File Changes
-        run: |
-          for file in ${CHANGED_UNAUTH_FILES}; do
-            echo "$file is unauthorized to change/delete"
-            exit 1  # Stop the job if unauthorized changes are detected
-          done
+        if: ${{github.actor != 'dependabot[bot]'}} && ${{github.event_name == 'pull_request'}}
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Get Changed Unauthorized files
+            id: changed-unauth-files
+            uses: tj-actions/changed-files@v45
+            with:
+              files: |
+                .github/**
+                .husky/**
+                .env.example
+                package.json
+                tsconfig.json
+                next.config.js
+                next-sitemap.config.js
+                next-env.d.ts
+                tailwind.config.js
+                postcss.config.js
+                yarn.lock
+                Dockerfile
+                CODEOWNERS
+                LICENSE
+                .gitignore
+                .gitmodules
+                .gitattributes
+                .eslintrc.js
+                .eslintignore
+                .zshrc
+                .prettierrc
+                .prettierignore
+                .npmrc
+
+          - name: Check for Unauthorized Changes
+            run: |
+              echo "Changed files: ${{ steps.changed-unauth-files.outputs.files }}"
+              if [[ "${{ steps.changed-unauth-files.outputs.files }}" != "" ]]; then
+                echo "Unauthorized changes detected."
+                exit 1
+              else
+                echo "No unauthorized changes detected."
+              fi
