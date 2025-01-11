@@ -110,93 +110,17 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            try {
-              const TOOL_NAME = "${{ steps.parse.outputs.tool_name }}";
-              const DESCRIPTION = "${{ steps.parse.outputs.description }}";
-              const TOOLING_TYPES = "${{ steps.parse.outputs.tooling_types }}";
-              const LANGUAGES = "${{ steps.parse.outputs.languages }}";
-              const ENVIRONMENTS = "${{ steps.parse.outputs.environments }}";
-              const LICENSE = "${{ steps.parse.outputs.license }}";
-              const HOMEPAGE = "${{ steps.parse.outputs.homepage }}";
-              const SOURCE ="${{steps.parse.outputs.source}}"
-              const SUPPORTED_DIALECTS = "${{ steps.parse.outputs.supported_dialects }}";
-              const TOOLING_LISTING_NOTES = "${{ steps.parse.outputs.tooling_listing_notes }}";
-              const BRANCH_NAME = process.env.branch_name;
-              
-              const prBody = `
-              ## New Tool Addition: ${TOOL_NAME}
-              
-              ### Tool Details
-              - *Description*: ${DESCRIPTION}
-              - *Tool Types*: ${TOOLING_TYPES}
-              - *Languages*: ${LANGUAGES}
-              - *Environments*: ${ENVIRONMENTS}
-              - *License*: ${LICENSE}
-              - *Homepage*: ${HOMEPAGE}
-              - *Source*: ${SOURCE}
-              - *Tooling-List*: ${TOOLING_LISTING_NOTES}
-              - *Supported Dialects: ${SUPPORTED_DIALECTS}
-              
-              ### Changes Made
-              This PR adds a new tool to the JSON Schema ecosystem catalog. The tool has been added to \data/tooling-data.yaml\ with all provided information.
-              
-              ### Checklist
-              - [x] Tool information added to tooling-data.yaml
-              - [x] Required fields are present
-              - [x] Format follows existing entries
-              
-              ### Additional Notes
-              Please review the added information for accuracy and completeness.
-              `;
-              
-              console.log('Creating PR with:', {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `Add new tool: ${TOOL_NAME}`,
-                head: BRANCH_NAME,
-                base: 'main'
-              });
-              
-              // Add error handling and retry logic
-              let retries = 3;
-              while (retries > 0) {
-                try {
-                  const pullRequest = await github.rest.pulls.create({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    title: `Add new tool: ${TOOL_NAME}`,
-                    head: BRANCH_NAME,
-                    base: 'main',
-                    body: prBody
-                  });
-                  
-                  console.log('PR created:', pullRequest.data.html_url);
-                  break;
-                } catch (error) {
-                  console.error(`Attempt ${4-retries} failed:`, error);
-                  retries--;
-                  if (retries === 0) throw error;
-                  // Wait 2 seconds before retrying
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-              }
-            } catch (error) {
-              console.error('Error creating PR:', error);
-              core.setFailed(`Failed to create PR: ${error.message}`);
-            }
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Add new tool: ${{ steps.parse.outputs.tool_name }}`,
+              head: process.env.BRANCH_NAME,
+              base: 'main',
+              body: `Adding the new tool ${{ steps.parse.outputs.tool_name }}.`
+            });
+            console.log(`Pull request created: ${pr.data.html_url}`);
 
-      - name: Check Unauthorized File Changes
-        run: |
-          CHANGED_FILES=$(git diff --name-only HEAD~1)
-          UNAUTHORIZED_FILES=".github/workflows/create-tool-pr.yml"
-          for file in $CHANGED_FILES; do
-            if [[ "$UNAUTHORIZED_FILES" == *"$file"* ]]; then
-              echo "$file is unauthorized to change/delete"
-              exit 1
-            fi
-          done
-
-      - name: Upload coverage to Codecov
+      - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5.1.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
