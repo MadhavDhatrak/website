@@ -185,8 +185,12 @@ jobs:
               core.setFailed(`Failed to create PR: ${error.message}`);
             }
       
-
-            
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5.1.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} 
+          fail_ci_if_error: false    
+          verbose: true 
             
 
 
