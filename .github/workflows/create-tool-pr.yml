@@ -12,7 +12,6 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,25 +27,25 @@ jobs:
           # Debug: Show the issue body for inspection
           echo "Issue body content:"
           echo "${{ github.event.issue.body }}"
-          
-          # Parse with more flexible patterns
+
+          # Parse values from the issue body
           {
-            echo "tool_name=$(echo '${{ github.event.issue.body }}' | grep "Tool Name" -A 1 | tail -n 1 | xargs)"
-            echo "description=$(echo '${{ github.event.issue.body }}' | grep "Tool Description" -A 1 | tail -n 1 | xargs)"
-            echo "tooling_types=$(echo '${{ github.event.issue.body }}' | grep "Tool Type" -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
-            echo "languages=$(echo '${{ github.event.issue.body }}' | grep "Languages" -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
-            echo "environments=$(echo '${{ github.event.issue.body }}' | grep "Environments" -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
-            echo "maintainer_names=$(echo '${{ github.event.issue.body }}' | grep "Maintainer Name" -A 1 | tail -n 1 | xargs)"
-            echo "maintainer_platforms=$(echo '${{ github.event.issue.body }}' | grep "Maintainer Platform" -A 1 | tail -n 1 | xargs)"
-            echo "creator_names=$(echo '${{ github.event.issue.body }}' | grep "Creator Name" -A 1 | tail -n 1 | xargs)"
-            echo "creator_platforms=$(echo '${{ github.event.issue.body }}' | grep "Creator Platform" -A 1 | tail -n 1 | xargs)"
-            echo "homepage=$(echo '${{ github.event.issue.body }}' | grep "Homepage" -A 1 | tail -n 1 | xargs)"
-            echo "source=$(echo '${{ github.event.issue.body }}' | grep "Source" -A 1 | tail -n 1 | xargs)" 
-            echo "license=$(echo '${{ github.event.issue.body }}' | grep "License" -A 1 | tail -n 1 | xargs)"
-            echo "supported_dialects=$(echo '${{ github.event.issue.body }}' | grep "Supported Dialects" -A 1 | tail -n 1 | sed 's/\"//g' | tr ',' ' ' | xargs | sed 's/\([^ ]*\)/\x27\1\x27/g' | sed 's/ /, /g')"
-            echo "tooling_listing_notes=$(echo '${{ github.event.issue.body }}' | grep "Tooling Listing Notes" -A 1 | tail -n 1 | xargs)" 
+            echo "tool_name=$(echo '${{ github.event.issue.body }}' | grep 'Tool Name' -A 1 | tail -n 1 | xargs)"
+            echo "description=$(echo '${{ github.event.issue.body }}' | grep 'Tool Description' -A 1 | tail -n 1 | xargs)"
+            echo "tooling_types=$(echo '${{ github.event.issue.body }}' | grep 'Tool Type' -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
+            echo "languages=$(echo '${{ github.event.issue.body }}' | grep 'Languages' -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
+            echo "environments=$(echo '${{ github.event.issue.body }}' | grep 'Environments' -A 1 | tail -n 1 | tr ',' ' ' | xargs | sed 's/ /, /g')"
+            echo "maintainer_names=$(echo '${{ github.event.issue.body }}' | grep 'Maintainer Name' -A 1 | tail -n 1 | xargs)"
+            echo "maintainer_platforms=$(echo '${{ github.event.issue.body }}' | grep 'Maintainer Platform' -A 1 | tail -n 1 | xargs)"
+            echo "creator_names=$(echo '${{ github.event.issue.body }}' | grep 'Creator Name' -A 1 | tail -n 1 | xargs)"
+            echo "creator_platforms=$(echo '${{ github.event.issue.body }}' | grep 'Creator Platform' -A 1 | tail -n 1 | xargs)"
+            echo "homepage=$(echo '${{ github.event.issue.body }}' | grep 'Homepage' -A 1 | tail -n 1 | xargs)"
+            echo "source=$(echo '${{ github.event.issue.body }}' | grep 'Source' -A 1 | tail -n 1 | xargs)"
+            echo "license=$(echo '${{ github.event.issue.body }}' | grep 'License' -A 1 | tail -n 1 | xargs)"
+            echo "supported_dialects=$(echo '${{ github.event.issue.body }}' | grep 'Supported Dialects' -A 1 | tail -n 1 | sed 's/\"//g' | tr ',' ' ' | xargs | sed 's/ /, /g')"
+            echo "tooling_listing_notes=$(echo '${{ github.event.issue.body }}' | grep 'Tooling Listing Notes' -A 1 | tail -n 1 | xargs)"
           } >> "$GITHUB_OUTPUT"
-          
+
           # Debug: Show parsed output
           cat "$GITHUB_OUTPUT"
 
@@ -63,66 +62,11 @@ jobs:
           
           # Debug: Show parsed values
           echo "Using these values:"
-          echo "Tool name: '${{ steps.parse.outputs.tool_name }}'"
-          echo "Description: '${{ steps.parse.outputs.description }}'"
-          echo "Tooling types: [${{ steps.parse.outputs.tooling_types }}]"
-          
-          # Add new entry with proper indentation
-          {
-            echo ""
-            echo "- name: '${{ steps.parse.outputs.tool_name }}'"
-            echo "  description: '${{ steps.parse.outputs.description }}'"
-            echo "  toolingTypes: [${{ steps.parse.outputs.tooling_types }}]"
-            echo "  languages: [${{ steps.parse.outputs.languages }}]"
-            echo "  environments: [${{ steps.parse.outputs.environments }}]"
-            echo "  maintainers:"
-            echo "    - name: '${{ steps.parse.outputs.maintainer_names }}'"
-            echo "      platform: '${{ steps.parse.outputs.maintainer_platforms }}'"
-            echo "  creators:"
-            echo "    - name: '${{ steps.parse.outputs.creator_names }}'"
-            echo "      platform: '${{ steps.parse.outputs.creator_platforms }}'"
-            echo "  homepage: '${{ steps.parse.outputs.homepage }}'"
-            echo "  source: '${{ steps.parse.outputs.source }}'"
-            echo "  license: '${{ steps.parse.outputs.license }}'"
-            echo "  supportedDialects:"
-            echo "    draft: [${{ steps.parse.outputs.supported_dialects }}]"  
-            echo "  toolingListingNotes: '${{ steps.parse.outputs.tooling_listing_notes }}'"
-          } >> data/tooling-data.yaml
-          
-          # Debug: Show file content after addition
-          echo "File content after addition:"
-          cat data/tooling-data.yaml
+          cat "$GITHUB_OUTPUT"
 
-      - name: Commit and Push Changes
-        id: commit
+      - name: Check Unauthorized File Changes
         run: |
-          TOOL_NAME="${{ steps.parse.outputs.tool_name }}"
-          BRANCH_NAME="add-tool-$(echo "$TOOL_NAME" | tr ' ' '-')-$(date +%s)"
-          git checkout -b "$BRANCH_NAME"
-          git add data/tooling-data.yaml
-          git commit -m "Add new tool: $TOOL_NAME"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin "$BRANCH_NAME"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
-
-      - name: Create Pull Request
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pr = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Add new tool: ${{ steps.parse.outputs.tool_name }}`,
-              head: process.env.BRANCH_NAME,
-              base: 'main',
-              body: `Adding the new tool ${{ steps.parse.outputs.tool_name }}.`
-            });
-            console.log(`Pull request created: ${pr.data.html_url}`);
-
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5.1.2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          verbose: true
+          for file in ${CHANGED_UNAUTH_FILES}; do
+            echo "$file is unauthorized to change/delete"
+            exit 1  # Stop the job if unauthorized changes are detected
+          done
